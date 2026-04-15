@@ -1,8 +1,4 @@
-import {
-  messageSchema,
-  type MessageParsed,
-} from '../schemas/websocket-message.schema';
-import { myService } from '../services/my-service.service';
+import { messageSchema, type ClientRegisterPayload, } from '../schemas/websocket-message.schema';
 import type { OutgoingWsMessage } from '../types';
 
 interface HandlerResult {
@@ -22,14 +18,28 @@ const createErrorResponse = (error: string): OutgoingWsMessage => {
 export const handleGetClients = (): HandlerResult => {
   return {
     broadcast: [],
-    personal: []
+    personal: [
+      {
+        type: 'CLIENT_STATE',
+        payload: []
+      }
+    ]
   }
 }
 
-export const handleClientRegister = (clientId: string, payload: any): HandlerResult => {
+export const handleClientRegister = (clientId: string, payload: ClientRegisterPayload): HandlerResult => {
   return {
     broadcast: [],
-    personal: []
+    personal: [{
+      type: 'CLIENT_JOIN',
+      payload: {
+        clientId: clientId,
+        name: payload.name,
+        color: payload.color || 'gray',
+        coords: payload.coords,
+        updatedAt: 12342342342342,
+      }
+    }]
   }
 }
 
@@ -40,9 +50,9 @@ export const handleClientMoved = (clientId: string, payload: any): HandlerResult
   }
 }
 
-export const handleMessage = (message: string): HandlerResult => {
+export const handleMessage = (clientId: string, rawMessage: string): HandlerResult => {
   try {
-    const jsonData: unknown = JSON.parse(message);
+    const jsonData: unknown = JSON.parse(rawMessage);
     const parsedResult = messageSchema.safeParse(jsonData);
 
     if (!parsedResult.success) {
