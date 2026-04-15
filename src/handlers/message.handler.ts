@@ -3,9 +3,14 @@ import {
   type MessageParsed,
 } from '../schemas/websocket-message.schema';
 import { myService } from '../services/my-service.service';
-import type { WebSocketMessage, WebSocketResponse } from '../types';
+import type { OutgoingWsMessage } from '../types';
 
-const createErrorResponse = (error: string): WebSocketResponse => {
+interface HandlerResult {
+  personal: OutgoingWsMessage[];
+  broadcast: OutgoingWsMessage[];
+}
+
+const createErrorResponse = (error: string): OutgoingWsMessage => {
   return {
     type: 'ERROR',
     payload: { error: error },
@@ -13,76 +18,31 @@ const createErrorResponse = (error: string): WebSocketResponse => {
 };
 
 //! Handlers específicos
-const handleAddItem = (
-  payload: MessageParsed['payload']
-): WebSocketResponse => {
-  if (!payload?.name) {
-    return createErrorResponse('Name is required');
-  }
 
-  const newItem = myService.add(payload.name);
-
+export const handleGetClients = (): HandlerResult => {
   return {
-    type: 'ITEM_ADDED',
-    payload: newItem,
-  };
-};
+    broadcast: [],
+    personal: []
+  }
+}
 
-export const handleGetItems = (): WebSocketResponse => {
+export const handleClientRegister = (clientId: string, payload: any): HandlerResult => {
   return {
-    type: 'ITEMS_LIST',
-    payload: myService.getAll(),
-  };
-};
-
-const handleUpdateItem = (
-  payload: MessageParsed['payload']
-): WebSocketResponse => {
-  if (!payload?.id) {
-    return createErrorResponse('Item ID is required');
+    broadcast: [],
+    personal: []
   }
+}
 
-  const updatedItem = myService.update(payload.id, {
-    name: payload.name,
-  });
-
-  if (!updatedItem) {
-    return createErrorResponse(`Item with id ${payload.id} not found`);
-  }
-
+export const handleClientMoved = (clientId: string, payload: any): HandlerResult => {
   return {
-    type: 'ITEM_UPDATED',
-    payload: updatedItem,
-  };
-};
-
-const handleDeleteItem = (
-  payload: MessageParsed['payload']
-): WebSocketResponse => {
-  if (!payload?.id) {
-    return createErrorResponse(`Item with id ${payload?.id} not found`);
+    broadcast: [],
+    personal: []
   }
+}
 
-  const deleted = myService.delete(payload.id);
-
-  if (!deleted) {
-    return createErrorResponse(
-      `Item with id ${payload.id} not found or can't be deleted`
-    );
-  }
-
-  return {
-    type: 'ITEM_DELETED',
-    payload: {
-      id: payload.id,
-    },
-  };
-};
-
-//! General Handler o controlador general
-export const handleMessage = (message: string): WebSocketResponse => {
+export const handleMessage = (message: string): HandlerResult => {
   try {
-    const jsonData: WebSocketMessage = JSON.parse(message);
+    const jsonData: unknown = JSON.parse(message);
     const parsedResult = messageSchema.safeParse(jsonData);
 
     if (!parsedResult.success) {
@@ -91,25 +51,32 @@ export const handleMessage = (message: string): WebSocketResponse => {
         .map((issue) => issue.message)
         .join(', ');
 
-      return createErrorResponse(`Validation error ${errorMessage}`);
+      return {
+        broadcast: [],
+        personal: [createErrorResponse(`Validation error ${errorMessage}`)]
+      }
     }
 
     const { type, payload } = parsedResult.data;
 
     switch (type) {
-      case 'ADD_ITEM':
-        return handleAddItem(payload);
-
-      case 'UPDATE_ITEM':
-        return handleUpdateItem(payload);
-
-      case 'DELETE_ITEM':
-        return handleDeleteItem(payload);
-
+      case 'GET_CLIENTS':
+        return handleGetClients();
+      case 'CLIENT_REGISTER':
+        return handleClientRegister(clientId, payload);
+      case 'CLIENT_MOVE':
+        return handleClientMoved(clientId, payload);
       default:
-        return createErrorResponse(`Unknown message type: ${type}`);
+        return {
+          broadcast: [],
+          personal: [createErrorResponse(`Unknown message type: ${type}`)]
+        };
     }
   } catch (error) {
-    return createErrorResponse(`Validation error`);
+    console.log(error);
+    return {
+      broadcast: [],
+      personal: [createErrorResponse(`Unknown error found`)]
+    };
   }
 };
