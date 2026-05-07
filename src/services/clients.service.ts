@@ -32,7 +32,7 @@ class ClientsService {
         return client;
     }
 
-    clientMove(clientId: string, input: ClientMovePayload): { error: string } | ClientMarker {
+    clientMoved(clientId: string, input: ClientMovePayload): { error: string } | ClientMarker {
         const client = this.clientsStore.getById(clientId);
 
         if (!client) {
